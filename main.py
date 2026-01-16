@@ -1,6 +1,7 @@
 import usb.core
 import usb.util
 import sys
+import struct
 
 dev = usb.core.find(idVendor=0x05AC, idProduct=0x4141)
 if not dev:
@@ -42,12 +43,27 @@ def pongo_send(cmd):
     dev.ctrl_transfer(0x21, 3, 0, 0, cmd)
 
 
+def pongo_upload(filename):
+    with open(filename, "rb") as f:
+        data = f.read()
+    size = len(data)
+    # Send size
+    dev.ctrl_transfer(0x21, 1, 0, 0, struct.pack("<I", size))
+    # Send data via bulk
+    dev.write(0x02, data, timeout=60000)
+    print(f"Uploaded {size} bytes")
+
+
 pongo_read()
 
 while True:
     try:
         cmd = input()
-        pongo_send(cmd)
+        if cmd.startswith("/send "):
+            filename = cmd[6:].strip()
+            pongo_upload(filename)
+        else:
+            pongo_send(cmd)
         pongo_read()
     except EOFError:
         break
